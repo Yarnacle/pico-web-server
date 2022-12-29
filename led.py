@@ -1,22 +1,20 @@
 import machine
 
-class LED:
-	__led_pin = machine.Pin('LED',machine.Pin.OUT)
+__led_pin = machine.Pin('LED',machine.Pin.OUT)
+state = not not __led_pin.value()
+
+def on():
+	global state
+	__led_pin.on()
+	state = True
+
+def off():
+	global state
+	__led_pin.off()
 	state = False
 
-	def __init__(self):
-		pass
-
-	def on(self):
-		self.__led_pin.on()
-		self.state = True
-
-	def off(self):
-		self.__led_pin.off()
-		self.state = False
-	
-	def toggle(self):
-		if self.state:
-			self.off()
-			return
-		self.on()
+def toggle():
+	if state:
+		off()
+		return
+	on()

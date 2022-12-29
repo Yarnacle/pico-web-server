@@ -3,11 +3,9 @@ import socket
 import time
 import led
 
-led = led.LED()
-
 class Webserver:
-	def __init__(self,led):
-		self.led = led
+	def __init__(self):
+		pass
 
 	def connect(self,ssid,password):
 		wlan = network.WLAN(network.STA_IF)
@@ -18,13 +16,13 @@ class Webserver:
 
 		max_wait = 10
 		while max_wait > 0:
-			self.led.toggle()
+			led.toggle()
 			if wlan.status() < 0 or wlan.status() >= 3:
 				break
 			max_wait -= 1
 			time.sleep(1)
 
-		self.led.on()
+		led.on()
 
 		if wlan.status() != 3:
 			raise RuntimeError('Network connection failed')
