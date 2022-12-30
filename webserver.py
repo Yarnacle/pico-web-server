@@ -3,15 +3,21 @@ import socket
 import time
 import led
 from collections import namedtuple
+import re
 
 def get_html(path):
 	with open(path) as html:
 		return html.read()
 
+def pass_context(html,context):
+	for key in context:
+		html = re.sub(r'{{\s*' + key + r'\s*}}',context[key],html)
+	return html
+
 class Webserver:
 	def __init__(self):
 		self.pages = {
-			'/': lambda: get_html('index.html')
+			'/': lambda *args: get_html('index.html')
 		}
 
 
@@ -59,12 +65,16 @@ class Webserver:
 			try:
 				global client
 				client,ip = connection.accept()
-				print(f'Client connected from {ip[0]}:{ip[1]}')
-
 				request = Request(client.recv(1024))
+				print(f'{request.rawtext.split("\r\n")[0]} from {ip[0]}:{ip[1]}')
 
 				try:
-					response = self.pages[request.target]()
+					handler = self.pages[request.target]
+					try:
+						response = handler(request)
+					except:
+						response = '<h1>An unexpected error occured</h1>'
+
 				except KeyError:
 					response = '<h1>Error 404: not found</h1>'
 				except:
@@ -84,14 +94,18 @@ class Request:
 			self.rawtext = raw.decode('utf-8')
 		except:
 			self.rawtext = raw
-
 		line_list = self.rawtext.split('\r\n')
 		line = line_list[0].split(' ')
 		self.type,self.target,self.status = line[0],line[1],' '.join(line[2:])
 
-		header_dict = {header.split(': ')[0].replace('-','_'):header.split(': ')[1] for header in line_list[1:] if header}
+		header_dict = {header.split(': ')[0].replace('-','_'): header.split(': ')[1] for header in line_list[1:line_list.index('')] if header}
 		HeaderField = namedtuple('HeaderField',list([header_name.replace('-','_') for header_name in header_dict.keys()]))
 		self.headers =  HeaderField(**header_dict)
+		self.body = line_list[line_list.index('') + 1]
+	
+	def parse_form(self):
+		field_list = self.body.split('&')
+		return {field.split('=')[0]: field.split('=')[1] for field in field_list}
 	
 	def __str__(self):
 		return self.rawtext
