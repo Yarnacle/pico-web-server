@@ -1,2 +1,4 @@
 # Simple-Pico-Web-Server
-Very simple; exists solely for experimentation
+Very simple; solely for experimentation
+
+I made a simple Python backend framework
