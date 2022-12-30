@@ -2,10 +2,18 @@ import network
 import socket
 import time
 import led
+from collections import namedtuple
+
+def get_html(path):
+	with open(path) as html:
+		return html.read()
 
 class Webserver:
 	def __init__(self):
-		pass
+		self.pages = {
+			'/': lambda: get_html('index.html')
+		}
+
 
 	def connect(self,ssid,password):
 		wlan = network.WLAN(network.STA_IF)
@@ -32,6 +40,13 @@ class Webserver:
 			global network_ip
 			network_ip = status[0]
 
+	def path(self,url_path,**kwargs):
+		if not 'handler' in kwargs:
+			handler = lambda: get_html(f'{url_path}.html')
+		else:
+			handler = kwargs['handler']
+		self.pages[url_path] = handler
+
 	def listen(self):
 		ip = socket.getaddrinfo('0.0.0.0',80)[0][-1]
 		connection = socket.socket()
@@ -44,11 +59,16 @@ class Webserver:
 			try:
 				global client
 				client,ip = connection.accept()
-				print(f'Client connected from {ip}')
+				print(f'Client connected from {ip[0]}:{ip[1]}')
 
-				request = str(client.recv(1024))
-				with open('index.html','r') as html:
-					response = html.read()
+				request = Request(client.recv(1024))
+
+				try:
+					response = self.pages[request.target]()
+				except KeyError:
+					response = '<h1>Error 404: not found</h1>'
+				except:
+					response = '<h1>An unexpected error occured</h1>'
 
 				client.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
 				client.send(response)
@@ -57,3 +77,21 @@ class Webserver:
 			except OSError:
 				client.close()
 				print('Connection closed')
+
+class Request:
+	def __init__(self,raw):
+		try:
+			self.rawtext = raw.decode('utf-8')
+		except:
+			self.rawtext = raw
+
+		line_list = self.rawtext.split('\r\n')
+		line = line_list[0].split(' ')
+		self.type,self.target,self.status = line[0],line[1],' '.join(line[2:])
+
+		header_dict = {header.split(': ')[0].replace('-','_'):header.split(': ')[1] for header in line_list[1:] if header}
+		HeaderField = namedtuple('HeaderField',list([header_name.replace('-','_') for header_name in header_dict.keys()]))
+		self.headers =  HeaderField(**header_dict)
+	
+	def __str__(self):
+		return self.rawtext
