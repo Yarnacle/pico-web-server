@@ -56,37 +56,41 @@ class Webserver:
 	def listen(self):
 		ip = socket.getaddrinfo('0.0.0.0',80)[0][-1]
 		connection = socket.socket()
+		connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		connection.bind(ip)
 		connection.listen(1)
 		print()
 		print(f'Listening on {network_ip}')
 
-		while True:
-			try:
-				global client
-				client,ip = connection.accept()
-				request = Request(client.recv(1024))
-				print(f'{request.rawtext.split("\r\n")[0]} from {ip[0]}:{ip[1]}')
-
+		try:
+			while True:
 				try:
-					handler = self.pages[request.target]
+					global client
+					client,ip = connection.accept()
+					request = Request(client.recv(1024))
+					print(request.rawtext.split("\r\n")[0] +  " from " + str(ip[0]))
+
 					try:
-						response = handler(request)
+						handler = self.pages[request.target]
+						try:
+							response = handler(request)
+						except:
+							response = '<h1>An unexpected error occured</h1>'
+
+					except KeyError:
+						response = '<h1>Error 404: not found</h1>'
 					except:
 						response = '<h1>An unexpected error occured</h1>'
 
-				except KeyError:
-					response = '<h1>Error 404: not found</h1>'
-				except:
-					response = '<h1>An unexpected error occured</h1>'
+					client.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
+					client.send(response)
+				
+				finally:
+					client.close()
+		except KeyboardInterrupt as e:
+			print('Connection closed')
+			connection.close()
 
-				client.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
-				client.send(response)
-				client.close()
-
-			except OSError:
-				client.close()
-				print('Connection closed')
 
 class Request:
 	def __init__(self,raw):
@@ -96,7 +100,7 @@ class Request:
 			self.rawtext = raw
 		line_list = self.rawtext.split('\r\n')
 		line = line_list[0].split(' ')
-		self.type,self.target,self.status = line[0],line[1],' '.join(line[2:])
+		self.type,self.target,self.sceheme = line[0],line[1],line[2]
 
 		header_dict = {header.split(': ')[0].replace('-','_'): header.split(': ')[1] for header in line_list[1:line_list.index('')] if header}
 		HeaderField = namedtuple('HeaderField',list([header_name.replace('-','_') for header_name in header_dict.keys()]))
